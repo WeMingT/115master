@@ -445,8 +445,22 @@ import { useContextMenu } from './hooks/useContextMenu'
 ### 115 API
 
 - API 封装在 `@/utils/drive115/`
-- 使用 GM_xmlhttpRequest 进行跨域请求
-- 注意 API 限制和缓存策略
+  - `core.ts` — 底层 API 调用（直接对接 115 各端点）
+  - `wrap.ts` — 高层封装，带容错回退（如 Pro API 失败回退 Web API）
+  - `crypto.ts` / `rsa.ts` — Pro API 的 RSA+XOR 加密解密
+  - `api/` — 请求/响应类型定义（按 webApi、proApi、normalApi 分组）
+  - `index.ts` — 导出单例 `drive115`（`Drive115Wrap` 实例）
+- 使用 GM_xmlhttpRequest（115 浏览器）或 fetch（标准浏览器）进行请求
+- 认证方式: Cookie 认证，`credentials: 'include'` 自动携带浏览器 Cookie
+- 登录过期: errNo `990001`；人机验证: code `911`
+
+**MUST**: 当需要 115 API 接口详情（端点、参数、响应格式等）时，主动查阅以下参考文档：
+
+- **115 开放平台官方文档**: `D:\DevelopWorkshop\115pan\115_docs\115开放平台\` — Open API 完整文档（认证、文件管理、视频播放、离线下载等）
+- **p115client**: `D:\DevelopWorkshop\p115client\` — Python 115 API 客户端（300+ 方法，覆盖 Web/App/Open 全部 API）
+  - 主文件: `p115client/client.py`（完整端点定义）
+  - 类型: `p115client/type.py`、常量: `p115client/const.py`
+- **本项目已有封装**: `apps/monkey/src/utils/drive115/` — 优先参考已有实现
 
 ### Subtitle System
 

@@ -11,7 +11,7 @@ import {
 import { qualityCodeMap } from '@/constants/quality'
 import { is115Browser } from '@/utils/platform'
 import { fetchRequest } from '@/utils/request/fetchRequest'
-import { GMRequest } from '@/utils/request/gmRequst'
+import { GMRequest, GMRequestInstance } from '@/utils/request/gmRequst'
 import { getXUrl } from '@/utils/url'
 import { Crypto115 } from './crypto'
 
@@ -263,6 +263,93 @@ export class Drive115Core {
     )
 
     return (await response.json()) as WebApi.Res.MoviesSubtitle
+  }
+
+  /** 推送解压任务（让服务器解析压缩包内容） */
+  async webApiPostPushExtract(params: WebApi.Req.PostPushExtract) {
+    const data: Record<string, string> = { pick_code: params.pick_code }
+    if (params.secret)
+      data.secret = params.secret
+    return this.postWithFallback<WebApi.Res.PushExtract>(
+      new URL('/files/push_extract', this.WEB_API_URL).href,
+      data,
+    )
+  }
+
+  /** 查询推送解压进度 */
+  async webApiGetPushExtract(params: WebApi.Req.GetPushExtract) {
+    const response = await fetchRequest.get(
+      new URL('/files/push_extract', this.WEB_API_URL).href,
+      {
+        params,
+      },
+    )
+    return (await response.json()) as WebApi.Res.PushExtractProgress
+  }
+
+  /** 获取压缩包内文件列表 */
+  async webApiGetExtractInfo(params: WebApi.Req.GetExtractInfo) {
+    const response = await fetchRequest.get(
+      new URL('/files/extract_info', this.WEB_API_URL).href,
+      {
+        params,
+      },
+    )
+    return (await response.json()) as WebApi.Res.ExtractInfo
+  }
+
+  /** 执行解压到指定目录（使用 URLSearchParams 支持重复 key） */
+  async webApiPostAddExtractFile(
+    pickCode: string,
+    files: string[],
+    dirs: string[],
+    toPid: number | string = 0,
+  ) {
+    const body = new URLSearchParams()
+    body.append('pick_code', pickCode)
+    body.append('paths', '文件')
+    body.append('to_pid', String(toPid))
+    files.forEach(f => body.append('extract_file[]', f))
+    dirs.forEach(d => body.append('extract_dir[]', d))
+
+    try {
+      const response = await fetchRequest.post(
+        new URL('/files/add_extract_file', this.WEB_API_URL).href,
+        { body },
+      )
+      return (await response.json()) as WebApi.Res.AddExtractFile
+    }
+    catch {
+      const response = await GMRequestInstance.post(
+        new URL('/files/add_extract_file', this.WEB_API_URL).href,
+        { body: body.toString() },
+      )
+      return (await response.json()) as WebApi.Res.AddExtractFile
+    }
+  }
+
+  /** 查询解压进度 */
+  async webApiGetExtractProgress(params: WebApi.Req.GetExtractProgress) {
+    const response = await fetchRequest.get(
+      new URL('/files/add_extract_file', this.WEB_API_URL).href,
+      {
+        params,
+      },
+    )
+    return (await response.json()) as WebApi.Res.ExtractProgress
+  }
+
+  /** POST 请求 + GM fallback（解决 Tampermonkey sandbox 环境下 fetch 跨域问题） */
+  private async postWithFallback<T>(url: string, params: Record<string, string>): Promise<T> {
+    const body = new URLSearchParams(params)
+    try {
+      const response = await fetchRequest.post(url, { body })
+      return (await response.json()) as T
+    }
+    catch {
+      const response = await GMRequestInstance.post(url, { body: body.toString() })
+      return (await response.json()) as T
+    }
   }
 
   /** 跳转验证 */
